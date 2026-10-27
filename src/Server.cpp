@@ -9,7 +9,8 @@
 #include <cstring>
 #include <vector>
 #include <iostream>
-#include <stdexcept> // Для исключений
+#include <stdexcept>
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <cryptopp/osrng.h>
 #include <cryptopp/hex.h>
 #include <cryptopp/md5.h>
@@ -31,7 +32,7 @@ static std::string generateSalt() {
 static std::string computeMD5(const std::string& salt, const std::string& pass) {
     std::string msg = salt + pass;
     std::string hash;
-    CryptoPP::MD5 md5;
+    CryptoPP::Weak::MD5 md5;
     CryptoPP::StringSource(msg, true,
         new CryptoPP::HashFilter(md5, new CryptoPP::HexEncoder(new CryptoPP::StringSink(hash))));
     return hash;
