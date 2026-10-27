@@ -6,3 +6,6 @@ bin/
 data/*.txt
 logs/*.log
 vcalc.log
+
+# Тестовые клиенты
+dumb_client/
