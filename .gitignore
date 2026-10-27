@@ -9,3 +9,7 @@ vcalc.log
 
 # Тестовые клиенты
 dumb_client/
+
+# Документация
+html/
+latex/
