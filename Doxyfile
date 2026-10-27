@@ -1,0 +1,13 @@
+PROJECT_NAME           = "vcalc server"
+PROJECT_NUMBER         = 1.0
+PROJECT_BRIEF          = "Сервер для вычисления суммы квадратов"
+OUTPUT_DIRECTORY       = .
+INPUT                  = src include
+OUTPUT_LANGUAGE        = Russian
+GENERATE_LATEX         = YES
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+LATEX_OUTPUT           = latex
+EXTRACT_PRIVATE        = YES
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
