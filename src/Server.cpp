@@ -18,14 +18,13 @@
 
 namespace po = boost::program_options;
 
-// --- Статические функции аутентификации ---
 static std::string generateSalt() {
     CryptoPP::AutoSeededRandomPool prng;
     CryptoPP::byte salt[8];
     prng.GenerateBlock(salt, sizeof(salt));
     std::string hex;
     CryptoPP::StringSource(salt, sizeof(salt), true,
-        new CryptoPP::HexEncoder(new CryptoPP::StringSink(hex)));
+                           new CryptoPP::HexEncoder(new CryptoPP::StringSink(hex)));
     return hex;
 }
 
@@ -34,7 +33,7 @@ static std::string computeMD5(const std::string& salt, const std::string& pass) 
     std::string hash;
     CryptoPP::Weak::MD5 md5;
     CryptoPP::StringSource(msg, true,
-        new CryptoPP::HashFilter(md5, new CryptoPP::HexEncoder(new CryptoPP::StringSink(hash))));
+                           new CryptoPP::HashFilter(md5, new CryptoPP::HexEncoder(new CryptoPP::StringSink(hash))));
     return hash;
 }
 
@@ -48,26 +47,25 @@ void Server::parseArgs(int argc, char** argv) {
 
     po::options_description desc("Allowed options");
     desc.add_options()
-        ("help,h", "Produce help message")
-        ("db,d", po::value<std::string>(&dbPath_), "Path to client DB")
-        ("log,l", po::value<std::string>(&logPath), "Path to log file")
-        ("port,p", po::value<int>(&port_), "Listening port");
+    ("help,h", "Produce help message")
+    ("db,d", po::value<std::string>(&dbPath_), "Path to client DB")
+    ("log,l", po::value<std::string>(&logPath), "Path to log file")
+    ("port,p", po::value<int>(&port_), "Listening port");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
-    
+
     if (vm.count("help")) {
         std::cout << desc << "\n";
-        std::exit(0); // Выход после справки
+        std::exit(0);
     }
     po::notify(vm);
 
-    // Создаем логгер только после того, как узнали путь
     logger_ = new Logger(logPath);
 }
 
 void Server::start(int argc, char** argv) {
-    parseArgs(argc, argv); // Читаем аргументы
+    parseArgs(argc, argv);
 
     if (!db_.loadFromFile(dbPath_)) {
         throw std::runtime_error("Failed to load DB: " + dbPath_);
@@ -103,7 +101,7 @@ void Server::start(int argc, char** argv) {
             close(clientSock);
         }
     }
-    
+
     logger_->log("Сервер остановлен", Severity::NON_CRITICAL);
 }
 
@@ -126,7 +124,7 @@ bool Server::authenticateClient(int clientSock) {
     }
 
     std::string salt = generateSalt();
-    Protocol::sendString(clientSock, salt + "\n");
+    Protocol::sendString(clientSock, salt);
 
     std::string clientHash;
     if (!Protocol::recvLine(clientSock, clientHash)) return false;
@@ -146,10 +144,12 @@ void Server::handleClient(int clientSock) {
 
     uint32_t n;
     if (!Protocol::recvUint32(clientSock, n)) return;
+    if (n > 10000) return;
 
     for (uint32_t i = 0; i < n; ++i) {
         uint32_t size;
         if (!Protocol::recvUint32(clientSock, size)) return;
+        if (size > 10000) return;
 
         std::vector<double> vec(size);
         for (uint32_t j = 0; j < size; ++j) {
@@ -157,7 +157,8 @@ void Server::handleClient(int clientSock) {
         }
 
         double result = VectorProcessor::sumOfSquares(vec);
-        Protocol::sendDouble(clientSock, result);
+        if (!Protocol::sendDouble(clientSock, result)) return;
     }
+
     logger_->log("Session finished", Severity::NON_CRITICAL);
 }

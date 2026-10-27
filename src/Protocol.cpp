@@ -1,8 +1,9 @@
 #include "Protocol.h"
 #include <sys/socket.h>
-#include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#include <sys/time.h>
+#include <errno.h>
 
 static bool readAll(int sock, void* buf, size_t n) {
     char* p = static_cast<char*>(buf);
@@ -29,30 +30,19 @@ static bool writeAll(int sock, const void* buf, size_t n) {
 }
 
 bool Protocol::sendUint32(int sock, uint32_t value) {
-    uint32_t net_val = htonl(value);
-    return writeAll(sock, &net_val, sizeof(net_val));
+    return writeAll(sock, &value, sizeof(value));
 }
 
 bool Protocol::recvUint32(int sock, uint32_t& value) {
-    uint32_t net_val;
-    if (!readAll(sock, &net_val, sizeof(net_val))) return false;
-    value = ntohl(net_val);
-    return true;
+    return readAll(sock, &value, sizeof(value));
 }
 
 bool Protocol::sendDouble(int sock, double value) {
-    uint64_t bits;
-    std::memcpy(&bits, &value, sizeof(bits));
-    bits = htobe64(bits);
-    return writeAll(sock, &bits, sizeof(bits));
+    return writeAll(sock, &value, sizeof(value));
 }
 
 bool Protocol::recvDouble(int sock, double& value) {
-    uint64_t bits;
-    if (!readAll(sock, &bits, sizeof(bits))) return false;
-    bits = be64toh(bits);
-    std::memcpy(&value, &bits, sizeof(value));
-    return true;
+    return readAll(sock, &value, sizeof(value));
 }
 
 bool Protocol::sendString(int sock, const std::string& str) {
@@ -62,10 +52,27 @@ bool Protocol::sendString(int sock, const std::string& str) {
 bool Protocol::recvLine(int sock, std::string& line) {
     line.clear();
     char c;
+
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 100000;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
     while (true) {
         ssize_t r = recv(sock, &c, 1, 0);
-        if (r <= 0) return false;
-        if (c == '\n') return true;
+
+        if (r < 0) {
+            if ((errno == EAGAIN || errno == EWOULDBLOCK) && !line.empty()) break;
+            return false;
+        }
+        if (r == 0) return false;
+        if (c == '\n' || c == '\r') break;
         line.push_back(c);
     }
+
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+    return true;
 }
