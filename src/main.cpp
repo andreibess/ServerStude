@@ -5,14 +5,21 @@
  */
 #include <iostream>
 #include "Server.h"
+#include "UserInterface.h"
 
 /**
- * @brief Главная функция. Cоздает сервер и ловит исключения.
+ * @brief Главная функция. Создает сервер и обрабатывает исключения.
  */
 int main(int argc, char** argv) {
     try {
-        Server server;
-        server.start(argc, argv); // Передаем аргументы командной строки
+        // 1. Парсим аргументы
+        Params params = UserInterface::parse(argc, argv);
+
+        // 2. Создаем сервер с готовыми параметрами
+        Server server(params);
+
+        // 3. Запускаем
+        server.start();
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Fatal error: " << e.what() << std::endl;

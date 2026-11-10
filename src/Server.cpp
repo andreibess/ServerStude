@@ -2,7 +2,6 @@
 #include "Protocol.h"
 #include "VectorProcessor.h"
 #include "Config.h"
-#include <boost/program_options.hpp>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -10,14 +9,14 @@
 #include <vector>
 #include <iostream>
 #include <stdexcept>
+
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <cryptopp/osrng.h>
 #include <cryptopp/hex.h>
 #include <cryptopp/md5.h>
 #include <cryptopp/filters.h>
 
-namespace po = boost::program_options;
-
+// --- Статические функции аутентификации ---
 static std::string generateSalt() {
     CryptoPP::AutoSeededRandomPool prng;
     CryptoPP::byte salt[8];
@@ -37,36 +36,17 @@ static std::string computeMD5(const std::string& salt, const std::string& pass) 
     return hash;
 }
 
-Server::Server() : port_(0), logger_(nullptr) {}
-Server::~Server() { stop(); delete logger_; }
+// --- Реализация класса Server ---
 
-void Server::parseArgs(int argc, char** argv) {
-    std::string logPath = Config::DEFAULT_LOG_PATH;
-    dbPath_ = Config::DEFAULT_DB_PATH;
-    port_ = Config::DEFAULT_PORT;
+Server::Server(const Params& params)
+: port_(params.port), dbPath_(params.dbPath), logger_(new Logger(params.logPath)) {}
 
-    po::options_description desc("Allowed options");
-    desc.add_options()
-    ("help,h", "Produce help message")
-    ("db,d", po::value<std::string>(&dbPath_), "Path to client DB")
-    ("log,l", po::value<std::string>(&logPath), "Path to log file")
-    ("port,p", po::value<int>(&port_), "Listening port");
-
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-
-    if (vm.count("help")) {
-        std::cout << desc << "\n";
-        std::exit(0);
-    }
-    po::notify(vm);
-
-    logger_ = new Logger(logPath);
+Server::~Server() {
+    stop();
+    delete logger_;
 }
 
-void Server::start(int argc, char** argv) {
-    parseArgs(argc, argv);
-
+bool Server::start() {
     if (!db_.loadFromFile(dbPath_)) {
         throw std::runtime_error("Failed to load DB: " + dbPath_);
     }
@@ -103,6 +83,7 @@ void Server::start(int argc, char** argv) {
     }
 
     logger_->log("Сервер остановлен", Severity::NON_CRITICAL);
+    return true;
 }
 
 void Server::stop() {
@@ -157,6 +138,7 @@ void Server::handleClient(int clientSock) {
         }
 
         double result = VectorProcessor::sumOfSquares(vec);
+
         if (!Protocol::sendDouble(clientSock, result)) return;
     }
 
