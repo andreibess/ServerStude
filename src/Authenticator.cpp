@@ -1,10 +1,9 @@
 #include "Authenticator.h"
 #include <cryptopp/osrng.h>
 #include <cryptopp/hex.h>
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <cryptopp/md5.h>
 #include <cryptopp/filters.h>
-
-#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 
 std::string Authenticator::generateSalt() {
     CryptoPP::AutoSeededRandomPool prng;

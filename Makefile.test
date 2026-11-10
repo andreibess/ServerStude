@@ -1,0 +1,43 @@
+# Makefile для сборки модульных тестов
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -Iinclude
+LDFLAGS = -lUnitTest++ -lcryptopp -lboost_program_options
+
+# Директории
+SRC_DIR = src
+TEST_DIR = tests
+OBJ_DIR = obj_test
+BIN_DIR = bin
+TARGET = $(BIN_DIR)/test_runner
+
+# Какие файлы тестируем (все исходники сервера, кроме main.cpp)
+SRCS = $(filter-out $(SRC_DIR)/main.cpp, $(wildcard $(SRC_DIR)/*.cpp)) \
+       $(wildcard $(TEST_DIR)/*.cpp)
+
+# Объектные файлы
+OBJS = $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(SRCS))
+
+# Цель по умолчанию
+all: $(TARGET)
+
+# Сборка исполняемого файла тестов
+$(TARGET): $(OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+	@echo "Тесты собраны: $(TARGET)"
+
+# Компиляция .cpp в .o с сохранением структуры папок
+$(OBJ_DIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Запуск тестов
+run: $(TARGET)
+	./$(TARGET)
+
+# Очистка
+clean:
+	rm -rf $(OBJ_DIR) $(TARGET)
+	@echo "Очистка тестов завершена"
+
+.PHONY: all run clean
