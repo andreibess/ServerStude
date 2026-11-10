@@ -1,6 +1,7 @@
 #include "Server.h"
 #include "Protocol.h"
 #include "VectorProcessor.h"
+#include "Authenticator.h"
 #include "Config.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -9,34 +10,6 @@
 #include <vector>
 #include <iostream>
 #include <stdexcept>
-
-#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
-#include <cryptopp/osrng.h>
-#include <cryptopp/hex.h>
-#include <cryptopp/md5.h>
-#include <cryptopp/filters.h>
-
-// --- Статические функции аутентификации ---
-static std::string generateSalt() {
-    CryptoPP::AutoSeededRandomPool prng;
-    CryptoPP::byte salt[8];
-    prng.GenerateBlock(salt, sizeof(salt));
-    std::string hex;
-    CryptoPP::StringSource(salt, sizeof(salt), true,
-                           new CryptoPP::HexEncoder(new CryptoPP::StringSink(hex)));
-    return hex;
-}
-
-static std::string computeMD5(const std::string& salt, const std::string& pass) {
-    std::string msg = salt + pass;
-    std::string hash;
-    CryptoPP::Weak::MD5 md5;
-    CryptoPP::StringSource(msg, true,
-                           new CryptoPP::HashFilter(md5, new CryptoPP::HexEncoder(new CryptoPP::StringSink(hash))));
-    return hash;
-}
-
-// --- Реализация класса Server ---
 
 Server::Server(const Params& params)
 : port_(params.port), dbPath_(params.dbPath), logger_(new Logger(params.logPath)) {}
@@ -104,13 +77,13 @@ bool Server::authenticateClient(int clientSock) {
         return false;
     }
 
-    std::string salt = generateSalt();
+    std::string salt = Authenticator::generateSalt();
     Protocol::sendString(clientSock, salt);
 
     std::string clientHash;
     if (!Protocol::recvLine(clientSock, clientHash)) return false;
 
-    if (computeMD5(salt, db_.getPassword(login)) != clientHash) {
+    if (!Authenticator::verify(salt, db_.getPassword(login), clientHash)) {
         Protocol::sendString(clientSock, Config::MSG_ERR);
         logger_->log("Auth failed for: " + login, Severity::NON_CRITICAL);
         return false;
